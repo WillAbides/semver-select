@@ -1,4 +1,4 @@
-package goprojecttmpl
+package semverselect
 
 import (
 	"testing"
