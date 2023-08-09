@@ -1,8 +1,10 @@
 #!/bin/sh
+#/ script/semver-select builds and runs the project with the given arguments.
 
 set -e
 
-CDPATH="" cd -- "$(dirname -- "$(dirname -- "$0")")"
+CDPATH="" cd -- "$(dirname -- "$0")/.."
 
-make -s bin/semver-select
+go build -o bin/semver-select .
+
 exec bin/semver-select "$@"
