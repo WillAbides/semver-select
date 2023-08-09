@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -12,6 +13,51 @@ import (
 
 func newBuffer(lines []string) io.Reader {
 	return strings.NewReader(strings.Join(lines, "\n"))
+}
+
+func Test_parseGoVersion(t *testing.T) {
+	for _, td := range []struct {
+		input string
+		want  string
+	}{
+		{input: "go1.15.2", want: "1.15.2"},
+		{input: "1.15.2", want: "1.15.2"},
+		{input: "go1.15", want: "1.15.0"},
+		{input: "1.15rc1", want: "1.15.0-rc1"},
+		{input: "g1.15"},
+		{input: "go1", want: "1.0.0"},
+		{input: "1", want: "1.0.0"},
+		{input: " "},
+		{input: " 1"},
+	} {
+		t.Run(td.input, func(t *testing.T) {
+			got, err := parseGoVersion(td.input)
+			if td.want == "" {
+				assert.EqualError(t, err, fmt.Sprintf("could not parse version %q", td.input))
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, td.want, got.String())
+		})
+	}
+	t.Run("overflow major", func(t *testing.T) {
+		// one more than max uint64
+		_, err := parseGoVersion("go18446744073709551616.2.3")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not parse major version")
+	})
+	t.Run("overflow minor", func(t *testing.T) {
+		// one more than max uint64
+		_, err := parseGoVersion("go1.18446744073709551616.3")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not parse minor version")
+	})
+	t.Run("overflow patch", func(t *testing.T) {
+		// one more than max uint64
+		_, err := parseGoVersion("go1.2.18446744073709551616")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not parse patch version")
+	})
 }
 
 func Test_run(t *testing.T) {
@@ -52,7 +98,12 @@ func Test_run(t *testing.T) {
 			name:     "errors on invalid candidate",
 			args:     []string{"-c", "1.2.3", "1.2.0", "1.2.3-rc1", "1.2.3", "1.2.4", "invalid"},
 			wantExit: 1,
-			wantErr:  `could not parse version "invalid": Invalid Semantic Version`,
+			wantErr:  `could not parse version "invalid"`,
+		},
+		{
+			name: "accepts go version",
+			args: []string{"--go", "-c", "1.2.3", "go1.2.0", "go1.2.3rc1", "go1.2.3", "go1.2.4"},
+			want: []string{"1.2.3"},
 		},
 		{
 			name: "ignores invalid candidate with --ignore-invalid",

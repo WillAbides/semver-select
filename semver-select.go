@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -31,10 +33,11 @@ type rootCmd struct {
 	MaxResults         int              `kong:"short=n,help='maximum number of results to output'"`
 	IgnoreInvalid      bool             `kong:"short=i,help='ignore invalid candidates instead of erroring'"`
 	ValidateConstraint bool             `kong:"help='just validate the constraint. exits non-zero if invalid'"`
+	GoVersions         bool             `kong:"name=go,help='allow go-style versions for candidates (e.g. 1.15rc1 or go1.20)'"`
 	Candidates         []string         `kong:"arg,optional,help='candidate versions to consider -- value of \"-\" indicates stdin'"`
 }
 
-func getVersions(args []string, stdin io.Reader, ignore bool) ([]*semver.Version, error) {
+func getVersions(args []string, stdin io.Reader, ignore, goVersions bool) ([]*semver.Version, error) {
 	res := make([]*semver.Version, 0, len(args))
 	doStdin := false
 	var err error
@@ -43,7 +46,7 @@ func getVersions(args []string, stdin io.Reader, ignore bool) ([]*semver.Version
 			doStdin = true
 			break
 		}
-		res, err = addVersion(arg, ignore, res)
+		res, err = addVersion(arg, ignore, goVersions, res)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +56,7 @@ func getVersions(args []string, stdin io.Reader, ignore bool) ([]*semver.Version
 	}
 	r := bufio.NewScanner(stdin)
 	for r.Scan() {
-		res, err = addVersion(r.Text(), ignore, res)
+		res, err = addVersion(r.Text(), ignore, goVersions, res)
 		if err != nil {
 			return nil, err
 		}
@@ -61,13 +64,16 @@ func getVersions(args []string, stdin io.Reader, ignore bool) ([]*semver.Version
 	return res, nil
 }
 
-func addVersion(ver string, ignore bool, versions []*semver.Version) ([]*semver.Version, error) {
+func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version) ([]*semver.Version, error) {
 	v, err := semver.NewVersion(ver)
+	if err != nil && goVersions {
+		v, err = parseGoVersion(ver)
+	}
 	if err != nil {
 		if ignore {
 			return versions, nil
 		}
-		return nil, fmt.Errorf("could not parse version %q: %v", ver, err)
+		return nil, fmt.Errorf("could not parse version %q", ver)
 	}
 	return append(versions, v), nil
 }
@@ -101,7 +107,7 @@ func run(parser *kong.Kong, cli *rootCmd, stdin io.Reader, args []string) {
 		return
 	}
 
-	versions, err := getVersions(cli.Candidates, stdin, cli.IgnoreInvalid)
+	versions, err := getVersions(cli.Candidates, stdin, cli.IgnoreInvalid, cli.GoVersions)
 	if err != nil {
 		k.Fatalf(err.Error())
 		return
@@ -128,4 +134,32 @@ func results(c *semver.Constraints, max int, versions []*semver.Version) []strin
 		result[i] = candidate.String()
 	}
 	return result
+}
+
+var goPattern = regexp.MustCompile(`^(?:go)?([1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?([a-zA-Z][a-zA-Z0-9.-]*)?$`)
+
+func parseGoVersion(ver string) (*semver.Version, error) {
+	matches := goPattern.FindStringSubmatch(ver)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("could not parse version %q", ver)
+	}
+	var major, minor, patch uint64
+	var err error
+	major, err = strconv.ParseUint(matches[1], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse major version %q: %v", ver, err)
+	}
+	if matches[2] != "" {
+		minor, err = strconv.ParseUint(matches[2], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse minor version %q: %v", ver, err)
+		}
+	}
+	if matches[3] != "" {
+		patch, err = strconv.ParseUint(matches[3], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse patch version %q: %v", ver, err)
+		}
+	}
+	return semver.New(major, minor, patch, matches[4], ""), nil
 }

@@ -35,6 +35,7 @@ Flags:
   -n, --max-results=INT        maximum number of results to output
   -i, --ignore-invalid         ignore invalid candidates instead of erroring
       --validate-constraint    just validate the constraint. exits non-zero if invalid
+      --go                     allow go-style versions for candidates (e.g. 1.15rc1 or go1.20)
 ```
 
 <!--- end usage output --->
