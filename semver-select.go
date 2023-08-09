@@ -17,7 +17,7 @@ semver-select selects matching semvers from a list.
 
 For example, get the newest version of go 1.15 like so:
 
-  curl -s 'https://golang.org/dl/?mode=json&include=all' \
+  curl -Ls 'https://golang.org/dl/?mode=json&include=all' \
     | jq -r '.[].version' \
     | sed 's/^go//g' \
     | semver-select -i -c '1.15' -
