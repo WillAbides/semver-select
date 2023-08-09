@@ -9,6 +9,8 @@ bindown template-source add semver-select https://github.com/WillAbides/semver-s
 bindown dependency add semver-select --source semver-select -y
 ```
 
+## Usage
+
 <!--- start usage output --->
 
 ```
