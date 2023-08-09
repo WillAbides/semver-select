@@ -1,7 +1,13 @@
 # semver-select
 
-[![godoc](https://pkg.go.dev/badge/github.com/willabides/semver-select.svg)](https://pkg.go.dev/github.com/willabides/semver-select)
-[![ci](https://github.com/WillAbides/semver-select/workflows/ci/badge.svg?branch=main&event=push)](https://github.com/WillAbides/semver-select/actions?query=workflow%3Aci+branch%3Amain+event%3Apush)
+[Contributions welcome](./CONTRIBUTING.md).
+
+## Install With [bindown](https://github.com/WillAbides/bindown)
+
+```shell
+bindown template-source add semver-select https://github.com/WillAbides/semver-select/releases/latest/download/bindown.yaml
+bindown dependency add semver-select --source semver-select -y
+```
 
 <!--- start usage output --->
 

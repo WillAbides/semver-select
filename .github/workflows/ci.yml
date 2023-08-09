@@ -37,7 +37,6 @@ jobs:
         id: release-train
         with:
           create-release: true
-          debug: true
           release-refs: main
           pre-tag-hook: script/release-hook
 
