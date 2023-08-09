@@ -25,13 +25,13 @@ For example, get the newest version of go 1.15 like so:
 
 var version = "unknown"
 
-var cli struct {
+type rootCmd struct {
 	Version            kong.VersionFlag `kong:"short=v,help='output semver-select version and exit'"`
 	Constraint         string           `kong:"required,short=c,help='semver constraint to match'"`
 	MaxResults         int              `kong:"short=n,help='maximum number of results to output'"`
 	IgnoreInvalid      bool             `kong:"short=i,help='ignore invalid candidates instead of erroring'"`
 	ValidateConstraint bool             `kong:"help='just validate the constraint. exits non-zero if invalid'"`
-	Candidates         []string         `kong:"arg,help='candidate versions to consider -- value of \"-\" indicates stdin'"`
+	Candidates         []string         `kong:"arg,optional,help='candidate versions to consider -- value of \"-\" indicates stdin'"`
 }
 
 func getVersions(args []string, stdin io.Reader, ignore bool) ([]*semver.Version, error) {
@@ -73,27 +73,42 @@ func addVersion(ver string, ignore bool, versions []*semver.Version) ([]*semver.
 }
 
 func main() {
-	k := kong.Parse(&cli,
+	var cli rootCmd
+	parser := kong.Must(
+		&cli,
 		kong.Vars{"version": version},
 		kong.Description(strings.TrimSpace(description)),
 	)
+	run(parser, &cli, os.Stdin, os.Args[1:])
+}
 
-	c, err := semver.NewConstraint(cli.Constraint)
-	if cli.ValidateConstraint {
-		if err != nil {
-			fmt.Fprintf(k.Stderr, "invalid constraint: %q\n", cli.Constraint)
-			k.Exit(1)
-		}
-		fmt.Println(c)
-		k.Exit(0)
+func run(parser *kong.Kong, cli *rootCmd, stdin io.Reader, args []string) {
+	k, err := parser.Parse(args)
+	if err != nil {
+		parser.Fatalf(err.Error())
+		return
 	}
-	k.FatalIfErrorf(err)
+	c, err := semver.NewConstraint(cli.Constraint)
+	if err != nil {
+		k.Fatalf("invalid constraint: %q", cli.Constraint)
+		return
+	}
+	if cli.ValidateConstraint {
+		return
+	}
+	if len(cli.Candidates) == 0 {
+		k.Fatalf("no candidates provided")
+		return
+	}
 
-	versions, err := getVersions(cli.Candidates, os.Stdin, cli.IgnoreInvalid)
-	k.FatalIfErrorf(err)
+	versions, err := getVersions(cli.Candidates, stdin, cli.IgnoreInvalid)
+	if err != nil {
+		k.Fatalf(err.Error())
+		return
+	}
 
 	for _, s := range results(c, cli.MaxResults, versions) {
-		fmt.Println(s)
+		fmt.Fprintln(parser.Stdout, s)
 	}
 }
 

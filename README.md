@@ -14,7 +14,7 @@ bindown dependency add semver-select --source semver-select -y
 <!--- start usage output --->
 
 ```
-Usage: semver-select --constraint=STRING <candidates> ...
+Usage: semver-select --constraint=STRING [<candidates> ...]
 
 semver-select selects matching semvers from a list.
 
@@ -26,7 +26,7 @@ For example, get the newest version of go 1.15 like so:
       | semver-select -i -c '1.15' -
 
 Arguments:
-  <candidates> ...    candidate versions to consider -- value of "-" indicates stdin
+  [<candidates> ...]    candidate versions to consider -- value of "-" indicates stdin
 
 Flags:
   -h, --help                   Show context-sensitive help.
