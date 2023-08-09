@@ -8,6 +8,11 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
     main: .
+archives:
+  - id: tar.gz
+    format: tar.gz
+  - id: plain
+    format: binary
 checksum:
   name_template: 'checksums.txt'
 snapshot:

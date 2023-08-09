@@ -25,7 +25,13 @@ fi
 # If there's no .goreleaser.yaml, there's nothing left to do.
 [ -f ".goreleaser.yaml" ] || exit 0
 
-script/bindown -q install goreleaser gh
+script/bindown -q install goreleaser gh jq
 git tag "$RELEASE_TAG"
 bin/goreleaser release --clean --skip-publish
 cp dist/checksums.txt dist/*.tar.gz "$ASSETS_DIR"
+
+JQ_QUERY='.[] | select(.extra.ID=="plain") | "\(.path) \(.name)"'
+
+bin/jq "$JQ_QUERY" -r dist/artifacts.json | while read -r filepath filename ; do
+  cp "$filepath" "$ASSETS_DIR/$filename"
+done
