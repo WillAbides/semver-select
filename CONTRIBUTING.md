@@ -23,6 +23,10 @@ semver-select uses a number of scripts to automate common tasks. They are found 
 
 script/bindown runs bindown with the given arguments
 
+### cibuild
+
+script/cibuild is run by CI to test this project. It can also be run locally.
+
 ### fmt
 
 script/fmt formats go code and shell scripts.
