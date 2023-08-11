@@ -34,37 +34,43 @@ type rootCmd struct {
 	IgnoreInvalid      bool             `kong:"short=i,help='ignore invalid candidates instead of erroring'"`
 	ValidateConstraint bool             `kong:"help='just validate the constraint. exits non-zero if invalid'"`
 	GoVersions         bool             `kong:"name=go,help='allow go-style versions for candidates (e.g. 1.15rc1 or go1.20)'"`
+	Orig               bool             `kong:"help='output original version strings instead of normalized versions'"`
 	Candidates         []string         `kong:"arg,optional,help='candidate versions to consider -- value of \"-\" indicates stdin'"`
 }
 
-func getVersions(args []string, stdin io.Reader, ignore, goVersions bool) ([]*semver.Version, error) {
+func getVersions(
+	args []string,
+	stdin io.Reader,
+	ignore, goVersions bool,
+) ([]*semver.Version, map[*semver.Version]string, error) {
 	res := make([]*semver.Version, 0, len(args))
 	doStdin := false
+	orig := map[*semver.Version]string{}
 	var err error
 	for _, arg := range args {
 		if arg == "-" {
 			doStdin = true
 			break
 		}
-		res, err = addVersion(arg, ignore, goVersions, res)
+		res, err = addVersion(arg, ignore, goVersions, res, orig)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if !doStdin {
-		return res, nil
+		return res, orig, nil
 	}
 	r := bufio.NewScanner(stdin)
 	for r.Scan() {
-		res, err = addVersion(r.Text(), ignore, goVersions, res)
+		res, err = addVersion(r.Text(), ignore, goVersions, res, orig)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return res, nil
+	return res, orig, nil
 }
 
-func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version) ([]*semver.Version, error) {
+func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version, orig map[*semver.Version]string) ([]*semver.Version, error) {
 	v, err := semver.NewVersion(ver)
 	if err != nil && goVersions {
 		v, err = parseGoVersion(ver)
@@ -75,6 +81,10 @@ func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version)
 		}
 		return nil, fmt.Errorf("could not parse version %q", ver)
 	}
+	if _, ok := orig[v]; ok {
+		return versions, nil
+	}
+	orig[v] = ver
 	return append(versions, v), nil
 }
 
@@ -107,18 +117,23 @@ func run(parser *kong.Kong, cli *rootCmd, stdin io.Reader, args []string) {
 		return
 	}
 
-	versions, err := getVersions(cli.Candidates, stdin, cli.IgnoreInvalid, cli.GoVersions)
+	versions, orig, err := getVersions(cli.Candidates, stdin, cli.IgnoreInvalid, cli.GoVersions)
 	if err != nil {
 		k.Fatalf(err.Error())
 		return
 	}
-
-	for _, s := range results(c, cli.MaxResults, versions) {
+	for _, s := range results(c, cli.MaxResults, versions, orig, cli.Orig) {
 		fmt.Fprintln(parser.Stdout, s)
 	}
 }
 
-func results(c *semver.Constraints, max int, versions []*semver.Version) []string {
+func results(
+	c *semver.Constraints,
+	max int,
+	versions []*semver.Version,
+	orig map[*semver.Version]string,
+	useOrig bool,
+) []string {
 	candidates := make([]*semver.Version, 0, len(versions))
 	for _, v := range versions {
 		if c.Check(v) {
@@ -131,7 +146,11 @@ func results(c *semver.Constraints, max int, versions []*semver.Version) []strin
 	}
 	result := make([]string, len(candidates))
 	for i, candidate := range candidates {
-		result[i] = candidate.String()
+		s := candidate.String()
+		if useOrig {
+			s = orig[candidate]
+		}
+		result[i] = s
 	}
 	return result
 }
