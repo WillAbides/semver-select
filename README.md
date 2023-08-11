@@ -36,6 +36,7 @@ Flags:
   -i, --ignore-invalid         ignore invalid candidates instead of erroring
       --validate-constraint    just validate the constraint. exits non-zero if invalid
       --go                     allow go-style versions for candidates (e.g. 1.15rc1 or go1.20)
+      --orig                   output original version strings instead of normalized versions
 ```
 
 <!--- end usage output --->
