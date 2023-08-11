@@ -42,10 +42,10 @@ func getVersions(
 	args []string,
 	stdin io.Reader,
 	ignore, goVersions bool,
-) ([]*semver.Version, map[*semver.Version]string, error) {
+) ([]*semver.Version, map[*semver.Version][]string, error) {
 	res := make([]*semver.Version, 0, len(args))
 	doStdin := false
-	orig := map[*semver.Version]string{}
+	orig := map[*semver.Version][]string{}
 	var err error
 	for _, arg := range args {
 		if arg == "-" {
@@ -70,7 +70,12 @@ func getVersions(
 	return res, orig, nil
 }
 
-func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version, orig map[*semver.Version]string) ([]*semver.Version, error) {
+func addVersion(
+	ver string,
+	ignore, goVersions bool,
+	versions []*semver.Version,
+	orig map[*semver.Version][]string,
+) ([]*semver.Version, error) {
 	v, err := semver.NewVersion(ver)
 	if err != nil && goVersions {
 		v, err = parseGoVersion(ver)
@@ -81,10 +86,7 @@ func addVersion(ver string, ignore, goVersions bool, versions []*semver.Version,
 		}
 		return nil, fmt.Errorf("could not parse version %q", ver)
 	}
-	if _, ok := orig[v]; ok {
-		return versions, nil
-	}
-	orig[v] = ver
+	orig[v] = append(orig[v], ver)
 	return append(versions, v), nil
 }
 
@@ -131,7 +133,7 @@ func results(
 	c *semver.Constraints,
 	max int,
 	versions []*semver.Version,
-	orig map[*semver.Version]string,
+	orig map[*semver.Version][]string,
 	useOrig bool,
 ) []string {
 	candidates := make([]*semver.Version, 0, len(versions))
@@ -144,13 +146,13 @@ func results(
 	if max > 0 && max < len(candidates) {
 		candidates = candidates[:max]
 	}
-	result := make([]string, len(candidates))
-	for i, candidate := range candidates {
-		s := candidate.String()
+	result := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
 		if useOrig {
-			s = orig[candidate]
+			result = append(result, orig[candidate]...)
+			continue
 		}
-		result[i] = s
+		result = append(result, candidate.String())
 	}
 	return result
 }

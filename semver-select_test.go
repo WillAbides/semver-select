@@ -124,8 +124,8 @@ func Test_run(t *testing.T) {
 		},
 		{
 			name: "outputs original with --orig",
-			args: []string{"--go", "--orig", "-c", "1.2.3", "go1.2.0", "go1.2.3rc1", "go1.2.3", "go1.2.4"},
-			want: []string{"go1.2.3"},
+			args: []string{"--go", "--orig", "-c", "1.2.3", "go1.2.0", "go1.2.3rc1", "go1.2.3", "go1.2.4", "1.2.3"},
+			want: []string{"go1.2.3", "1.2.3"},
 		},
 	} {
 		t.Run(td.name, func(t *testing.T) {
